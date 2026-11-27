@@ -71,6 +71,21 @@ npm run dev
 | 质量简报 | `quality_report` | 质量简报 | 覆盖学期、教学质量概况、突出问题 |
 | 教材选用 | `textbook_select` | 选用单 | 教材名称、主编、出版社 |
 
+## 质量简报更正收件
+
+质量简报页提供“更正收件 / 导入更正”入口，支持上传 CSV/TSV/JSON，也可直接粘贴内容。导入行至少包含 `原简报编号`；系统按编号（兼容 `Q-16`、`16`、`Q16`）和编制部门匹配原简报，**不使用相同学期作为更新条件**，因此两个部门同一学期的简报不会互相覆盖。
+
+标准接口：
+
+- `POST /api/quality_report/corrections/import`：JSON `{ filename, content | rows, 编制部门, receipt_id? }` 或 multipart `file`
+- `GET /api/quality_report/receipts/{receipt_ref}`：查看回执及无效行原因
+- `GET /api/quality_report/receipts/{receipt_ref}/download`：下载 CSV 回执
+- `POST /api/quality_report/corrections/{correction_id}/sign`：签收确认更正，并同步 `review_todo`
+- `POST /api/quality_report/receipts/{receipt_ref}/resume`：凭原回执补完，重复行幂等
+- `GET /api/review_meeting/{meeting_id}/distribution-readiness`：返回应“沿已签认议程继续、更正另办”还是“先核对更正版”
+
+主持人可在复盘会议页执行“核对更正版后分发”。签认/召开时会冻结议题依据快照；已召开会议保留当时带入的依据，后续更正只进入待办/后续议题。同一学期或期次的更正复用同一场复盘会议。
+
 ## 约定
 
 - 全部模块共享`frontend/src/views/WorkbenchView.vue|tsx`和一套资源路由。

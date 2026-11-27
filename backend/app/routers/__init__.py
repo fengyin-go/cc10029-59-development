@@ -1,6 +1,4 @@
-"""业务路由汇总：所有模块共用一套资源路由，由领域服务完成分派。"""
-from __future__ import annotations
+"""路由汇总：更正收件等专用路由先注册，之后是通用资源路由。"""
+from app.routers import corrections, resource
 
-from app.routers import resource
-
-ROUTERS = [resource]
+ROUTERS = [corrections, resource]

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import inspect
 import io
 from typing import Any
 
@@ -94,5 +95,24 @@ def create_entry(module: str, payload: EntryPayload) -> ActionResult:
 @router.post("/{module}/{entry_id}/actions", response_model=ActionResult)
 def run_action(module: str, entry_id: int, payload: ActionPayload) -> ActionResult:
     service = require_service(module)
-    entry, message = service.run_action(entry_id, payload.action.strip())
-    return ActionResult(ok=entry is not None, message=message, entry=entry)
+    parameters = inspect.signature(service.run_action).parameters
+    if any(parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()) or "payload" in parameters:
+        extra = payload.model_dump(exclude_none=True)
+        entry, message = service.run_action(entry_id, payload.action, extra)
+    else:
+        entry, message = service.run_action(entry_id, payload.action.strip())
+    result = ActionResult(ok=entry is not None, message=message, entry=entry)
+
+    # 复盘分发判定同时放在响应顶层，便于主持人接口直接读取应走哪条路径。
+    if module == "review_meeting" and hasattr(service, "distribution_readiness"):
+        readiness = service.distribution_readiness(entry_id)
+        if isinstance(readiness, dict):
+            result.readiness = readiness
+            result.can_distribute = bool(readiness.get("can_distribute"))
+            result.decision = str(readiness.get("decision") or readiness.get("mode") or "")
+    if isinstance(entry, dict) and isinstance(entry.get("distribution_readiness"), dict):
+        readiness = entry["distribution_readiness"]
+        result.readiness = readiness
+        result.can_distribute = bool(readiness.get("can_distribute", result.can_distribute))
+        result.decision = str(readiness.get("decision") or readiness.get("mode") or result.decision or "")
+    return result
